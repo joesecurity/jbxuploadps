@@ -173,7 +173,7 @@ foreach ($arg in $args) {
 if ($args -contains "-Help" -or $args -contains "/?" -or -not $FilePath -or -not $ApiKey -or $AcceptTAC -eq $null) {
     Write-Host "SubmitFileToJoeSandbox PowerShell Script"
     Write-Host "Usage: .\SubmitFileToJoeSandbox.ps1 -FilePath=<String> -ApiKey=<String> -AcceptTAC=<Boolean> [-ApiUrl=<String>]"
-    Write-Host "Example: .\SubmitFileToJoeSandbox.ps1 -FilePath='C:\path\to\file.exe' -ApiKey='your-api-key' -AcceptTAC=$True -ApiUrl='https://api.joesandbox.com/api/v2/'"
+    Write-Host "Example: .\SubmitFileToJoeSandbox.ps1 -FilePath='C:\path\to\file.exe' -ApiKey='your-api-key' -AcceptTAC=$True -ApiUrl='https://youronpremiseinstance.com'"
     Write-Host "Parameters:"
     Write-Host "  -FilePath: The full local path to the file to be submitted."
     Write-Host "  -ApiKey: The API key for Joe Sandbox authentication."
