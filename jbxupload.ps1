@@ -47,7 +47,12 @@ function SubmitFileToJoeSandbox {
         throw "Please provide the file path."
     }
 	
-	 if (-not $api_key) {
+	if (-not (Test-Path $filePath)) 
+	{
+		throw "File $filePath does not exist."
+	}
+
+	if (-not $api_key) {
         throw "Please provide the API key."
     }
 	
@@ -106,7 +111,7 @@ function SubmitFileToJoeSandbox {
 			$currentChunkSize = $end - $start
 			$currentChunk = New-Object byte[] $currentChunkSize
 			
-			$fileStream.Seek($start, [System.IO.SeekOrigin]::Begin)
+			$r = $fileStream.Seek($start, [System.IO.SeekOrigin]::Begin)
 			$r = $fileStream.Read($currentChunk, 0, $currentChunkSize)
 			$currentChunk = [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($currentChunk)
 			
