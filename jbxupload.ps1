@@ -4,12 +4,6 @@
 <#
 jbxupload.ps1 servers as un upload script for Joe Sandbox.
 #>
-function ReadAllBytes {
-	param(
-        [string]$file_path
-    )
-	return [System.IO.File]::ReadAllBytes($file_path)
-}
 
 <#
 .SYNOPSIS
@@ -57,25 +51,25 @@ function SubmitFileToJoeSandbox {
         throw "Please provide the API key."
     }
 	
-	$accept_tac_int = 0;
+	$accept_tac_int = 0
 	
 	if($accept_tac)
 	{
-		$accept_tac_int = 1;
+		$accept_tac_int = 1
 	}
 
 	Write-Host "Submitting Sample $file_path to Joe Sandbox";
 
 	if ($api_url -eq "$null" -or $api_url -eq $null -or $api_url -eq "") 
 	{
-		$api_url = "https://jbxcloud.joesecurity.org";
+		$api_url = "https://jbxcloud.joesecurity.org"
 	}
 	
-	$boundary = [System.Guid]::NewGuid().ToString();
+	$boundary = [System.Guid]::NewGuid().ToString()
 	$file_name = Split-Path -Path $file_path -Leaf
 
 	# Using default values, for all check https://jbxcloud.joesecurity.org/userguide?sphinxurl=usage/webapi.html#v2-submission-new
-	$LF = "`r`n";
+	$LF = "`r`n"
 	$bodyLines = (
 		"--$boundary",
 		"Content-Disposition: form-data; name=`"accept-tac`"$LF",
@@ -87,66 +81,80 @@ function SubmitFileToJoeSandbox {
 		"Content-Disposition: form-data; name=`"chunked-sample`"$LF",
 		"$file_name",
 		"--$boundary--$LF"
-	) -join $LF;
+	) -join $LF
 
 	$response = Invoke-RestMethod -UserAgent $USER_AGENT -Uri ($api_url + "/api/v2/submission/new") -Method Post -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $bodyLines;
+	
+	$responseJSON = $response | ConvertTo-Json
 	
 	$submission_id = $response.data.submission_id
 	
 	# Define the chunk size in bytes
 	$chunkSize = 10 * 1024 * 1024
-
-	# Read the file in chunks
-	$fileBytes = ReadAllBytes($file_path)
-	$chunkCount = [math]::Ceiling($fileBytes.Length / $chunkSize)
-	$fileSize = $fileBytes.Length
 	
-	for ($i = 0; $i -lt $chunkCount; $i++) {
-		$start = $i * $chunkSize
-		$end = [math]::Min(($i + 1) * $chunkSize, $fileBytes.Length)
-		$currentChunkSize = $end - $start
-		$currentChunk = New-Object byte[] $currentChunkSize
-		[Array]::Copy($fileBytes, $start, $currentChunk, 0, $currentChunkSize)
-		$currentChunk = [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($currentChunk)
-		
-		$chunkIndex = $i + 1
-		
-		# Prepare the body for chunk upload
-		$chunkBodyLines = (
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"apikey`"$LF",
-			"$API_KEY",
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"submission_id`"$LF",
-			"$submission_id",
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"file-size`"$LF",
-			"$fileSize",
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"chunk-size`"$LF",
-			"$chunkSize",
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"chunk-count`"$LF",
-			"$chunkCount",
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"current-chunk-index`"$LF",
-			"$chunkIndex",
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"current-chunk-size`"$LF",
-			"$currentChunkSize",
-			"--$boundary",
-			"Content-Disposition: form-data; name=`"chunk`"; filename=`"$file_name`"",
-			"Content-Type: application/octet-stream$LF",
-			$currentChunk,
-			"--$boundary--$LF"
-		) -join $LF
-		
-		# Upload the chunk
-		$chunkResponse = Invoke-RestMethod -UserAgent $USER_AGENT -Uri ($api_url + "/api/v2/submission/chunked-sample") -Method Post -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $chunkBodyLines
+	try
+	{
+		$fileStream = [System.IO.FileStream]::new($filePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
 
+		# Read the file in chunks
+		$chunkCount = [math]::Ceiling($fileStream.Length / $chunkSize)
+		$fileSize = $fileStream.Length
+		
+		for ($i = 0; $i -lt $chunkCount; $i++) {
+			$start = $i * $chunkSize
+			$end = [math]::Min(($i + 1) * $chunkSize, $fileStream.Length)
+			$currentChunkSize = $end - $start
+			$currentChunk = New-Object byte[] $currentChunkSize
+			
+			$fileStream.Seek($start, [System.IO.SeekOrigin]::Begin)
+			$r = $fileStream.Read($currentChunk, 0, $currentChunkSize)
+			$currentChunk = [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($currentChunk)
+			
+			$chunkIndex = $i + 1
+			
+			# Prepare the body for chunk upload
+			$chunkBodyLines = (
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"apikey`"$LF",
+				"$API_KEY",
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"submission_id`"$LF",
+				"$submission_id",
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"file-size`"$LF",
+				"$fileSize",
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"chunk-size`"$LF",
+				"$chunkSize",
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"chunk-count`"$LF",
+				"$chunkCount",
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"current-chunk-index`"$LF",
+				"$chunkIndex",
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"current-chunk-size`"$LF",
+				"$currentChunkSize",
+				"--$boundary",
+				"Content-Disposition: form-data; name=`"chunk`"; filename=`"$file_name`"",
+				"Content-Type: application/octet-stream$LF",
+				$currentChunk,
+				"--$boundary--$LF"
+			) -join $LF
+			
+			# Upload the chunk
+			$chunkResponse = Invoke-RestMethod -UserAgent $USER_AGENT -Uri ($api_url + "/api/v2/submission/chunked-sample") -Method Post -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $chunkBodyLines
+			
+		}
+		
+		return $responseJSON
+
+	} finally
+	{
+		$fileStream.Dispose()
 	}
 	
-	Write-Host "Successfully submitted: $submission_id"
+	return ""
 
 }
 
@@ -178,13 +186,13 @@ if ($args -contains "-Help" -or $args -contains "/?" -or -not $FilePath -or -not
     Write-Host "  -FilePath: The full local path to the file to be submitted."
     Write-Host "  -ApiKey: The API key for Joe Sandbox authentication."
     Write-Host "  -AcceptTAC: Acceptance of the Terms and Conditions."
-    Write-Host "  -ApiUrl: Optional. The URL of the Joe Sandbox API."
+    Write-Host "  -ApiUrl: Optional. The URL of the Joe Sandbox Web Interface."
     exit
 }
 
-# Proceed with the function call
 try {
-    SubmitFileToJoeSandbox -file_path $FilePath -api_key $ApiKey -accept_tac $AcceptTAC -api_url $ApiUrl
+    $response = SubmitFileToJoeSandbox -file_path $FilePath -api_key $ApiKey -accept_tac $AcceptTAC -api_url $ApiUrl
+	Write-Host $response
 }
 catch {
     Write-Host "Error occurred: $_"
