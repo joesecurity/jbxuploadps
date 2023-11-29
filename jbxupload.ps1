@@ -4,7 +4,6 @@
 <#
 jbxupload.ps1 servers as un upload script for Joe Sandbox.
 #>
-
 function ReadAllBytes {
 	param(
         [string]$file_path
@@ -12,9 +11,40 @@ function ReadAllBytes {
 	return [System.IO.File]::ReadAllBytes($file_path)
 }
 
+<#
+.SYNOPSIS
+    Submits a file to Joe Sandbox for malware analysis.
+
+.DESCRIPTION
+    This PowerShell function automates the submission of a file to Joe Sandbox, a service for analyzing files for potential malware. It's used in cybersecurity contexts for automated threat analysis.
+
+.PARAMETER file_path
+    The full local path to the file that needs to be submitted. 
+    Example: "C:\path\to\file.exe"
+
+.PARAMETER api_key
+    The API key for Joe Sandbox authentication. 
+    This is essential for utilizing the Joe Sandbox API for file submissions.
+    Example: "your-api-key-here"
+
+.PARAMETER accept_tac
+    A boolean parameter indicating whether the user accepts the Terms and Conditions of Joe Sandbox at https://jbxcloud.joesecurity.org/tandc. 
+    This is often required for API usage. 
+    Acceptable values: True or False
+
+.EXAMPLE
+    SubmitFileToJoeSandbox -file_path "C:\path\to\file.exe" -api_key "your-api-key-here" -accept_tac $True
+
+    This example submits "file.exe" to Joe Sandbox for analysis, using the specified API key and indicating acceptance of the Terms and Conditions.
+
+.NOTES
+    Ensure that the API key is valid and that the file path points to a legitimate file for analysis.
+#>
 function SubmitFileToJoeSandbox {
     param(
-        [string]$file_path, [string]$api_key
+        [string]$file_path, 
+		[string]$api_key, 
+		[boolean]$accept_tac
     )
 
     if (-not $file_path) {
@@ -24,6 +54,13 @@ function SubmitFileToJoeSandbox {
 	 if (-not $api_key) {
         throw "Please provide the API key."
     }
+	
+	$accept_tac_int = 0;
+	
+	if($accept_tac)
+	{
+		$accept_tac_int = 1;
+	}
 
 	Write-Host "Submitting Sample $file_path to Joe Sandbox";
 
@@ -38,7 +75,7 @@ function SubmitFileToJoeSandbox {
 	$bodyLines = (
 		"--$boundary",
 		"Content-Disposition: form-data; name=`"accept-tac`"$LF",
-		"1",
+		"$accept_tac_int",
 		"--$boundary",
 		"Content-Disposition: form-data; name=`"apikey`"$LF",
 		"$api_key",
@@ -109,17 +146,38 @@ function SubmitFileToJoeSandbox {
 
 }
 
-$API_KEY = "<TOBESET>";
+# Initialize parameters with default values
+$FilePath = $null
+$ApiKey = $null
+$AcceptTAC = $null
 
+# Parse arguments
+foreach ($arg in $args) {
+    if ($arg -match "^\-FilePath=(.*)") {
+        $FilePath = $matches[1]
+    } elseif ($arg -match "^\-ApiKey=(.*)") {
+        $ApiKey = $matches[1]
+    } elseif ($arg -match "^\-AcceptTAC=(.*)") {
+        $AcceptTAC = [System.Convert]::ToBoolean($matches[1])
+    }
+}
+
+# Show help if requested or if mandatory parameters are missing
+if ($args -contains "-Help" -or $args -contains "/?" -or -not $FilePath -or -not $ApiKey -or $AcceptTAC -eq $null) {
+    Write-Host "SubmitFileToJoeSandbox PowerShell Script"
+    Write-Host "Usage: .\SubmitFileToJoeSandbox.ps1 -FilePath=<String> -ApiKey=<String> -AcceptTAC=<Boolean>"
+    Write-Host "Example: .\SubmitFileToJoeSandbox.ps1 -FilePath='C:\path\to\file.exe' -ApiKey='your-api-key' -AcceptTAC=True"
+    Write-Host "Parameters:"
+    Write-Host "  -FilePath: The full local path to the file to be submitted."
+    Write-Host "  -ApiKey: The API key for Joe Sandbox authentication."
+    Write-Host "  -AcceptTAC: Acceptance of the Terms and Conditions."
+    exit
+}
+
+# Proceed with the function call
 try {
-    SubmitFileToJoeSandbox -file_path $args[0] -api_key $API_KEY
+    SubmitFileToJoeSandbox -file_path $FilePath -api_key $ApiKey -accept_tac $AcceptTAC
 }
 catch {
     Write-Host "Error occurred: $_"
 }
-
-
-
-
-
-

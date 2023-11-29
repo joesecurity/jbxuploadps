@@ -11,7 +11,7 @@ Describe "Joe Sandbox File Upload Tests" {
         Mock Invoke-RestMethod -ParameterFilter { $Body } { $script:capturedBodies += $Body; return @{ data = @{ submission_id = "12345" } } } 
         Mock ReadAllBytes { return New-Object Byte[] 1000 }
         
-        SubmitFileToJoeSandbox -file_path "C:\test" -api_key "1234"
+        SubmitFileToJoeSandbox -file_path "C:\test" -api_key "1234" -accept_tac $True
 
         Assert-MockCalled Invoke-RestMethod -Times 2 -Exactly
         
@@ -35,7 +35,7 @@ Describe "Joe Sandbox File Upload Tests" {
         Mock Invoke-RestMethod -ParameterFilter { $Body } { $script:capturedBodies += $Body; return @{ data = @{ submission_id = "12345" } } } 
         Mock ReadAllBytes { return New-Object Byte[] 123456789 }
         
-        SubmitFileToJoeSandbox -file_path "C:\test" -api_key "1234"
+        SubmitFileToJoeSandbox -file_path "C:\test" -api_key "1234" -accept_tac $True
 
         Assert-MockCalled Invoke-RestMethod -Times 13 -Exactly
         
