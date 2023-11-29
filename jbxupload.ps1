@@ -31,20 +31,22 @@ function ReadAllBytes {
     A boolean parameter indicating whether the user accepts the Terms and Conditions of Joe Sandbox at https://jbxcloud.joesecurity.org/tandc. 
     This is often required for API usage. 
     Acceptable values: True or False
+	
+.PARAMETER api_url
+    The URL to the Joe Sandbox Web interface, defaults to https://jbxcloud.joesecurity.org.
+    Acceptable values: "http URL"
 
 .EXAMPLE
     SubmitFileToJoeSandbox -file_path "C:\path\to\file.exe" -api_key "your-api-key-here" -accept_tac $True
 
     This example submits "file.exe" to Joe Sandbox for analysis, using the specified API key and indicating acceptance of the Terms and Conditions.
-
-.NOTES
-    Ensure that the API key is valid and that the file path points to a legitimate file for analysis.
 #>
 function SubmitFileToJoeSandbox {
     param(
         [string]$file_path, 
 		[string]$api_key, 
-		[boolean]$accept_tac
+		[boolean]$accept_tac,
+		[string]$api_url
     )
 
     if (-not $file_path) {
@@ -64,8 +66,10 @@ function SubmitFileToJoeSandbox {
 
 	Write-Host "Submitting Sample $file_path to Joe Sandbox";
 
-	# Joe Sandbox API URL, change for on-premise
-	$url = "https://jbxcloud.joesecurity.org";
+	if ($api_url -eq "$null" -or $api_url -eq $null -or $api_url -eq "") 
+	{
+		$api_url = "https://jbxcloud.joesecurity.org";
+	}
 	
 	$boundary = [System.Guid]::NewGuid().ToString();
 	$file_name = Split-Path -Path $file_path -Leaf
@@ -85,7 +89,7 @@ function SubmitFileToJoeSandbox {
 		"--$boundary--$LF"
 	) -join $LF;
 
-	$response = Invoke-RestMethod -UserAgent $USER_AGENT -Uri ($url + "/api/v2/submission/new") -Method Post -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $bodyLines;
+	$response = Invoke-RestMethod -UserAgent $USER_AGENT -Uri ($api_url + "/api/v2/submission/new") -Method Post -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $bodyLines;
 	
 	$submission_id = $response.data.submission_id
 	
@@ -138,7 +142,7 @@ function SubmitFileToJoeSandbox {
 		) -join $LF
 		
 		# Upload the chunk
-		$chunkResponse = Invoke-RestMethod -UserAgent $USER_AGENT -Uri ($url + "/api/v2/submission/chunked-sample") -Method Post -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $chunkBodyLines
+		$chunkResponse = Invoke-RestMethod -UserAgent $USER_AGENT -Uri ($api_url + "/api/v2/submission/chunked-sample") -Method Post -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $chunkBodyLines
 
 	}
 	
@@ -150,6 +154,7 @@ function SubmitFileToJoeSandbox {
 $FilePath = $null
 $ApiKey = $null
 $AcceptTAC = $null
+$ApiUrl = $null 
 
 # Parse arguments
 foreach ($arg in $args) {
@@ -159,24 +164,27 @@ foreach ($arg in $args) {
         $ApiKey = $matches[1]
     } elseif ($arg -match "^\-AcceptTAC=(.*)") {
         $AcceptTAC = [System.Convert]::ToBoolean($matches[1])
+    } elseif ($arg -match "^\-ApiUrl=(.*)") {
+        $ApiUrl = $matches[1]
     }
 }
 
 # Show help if requested or if mandatory parameters are missing
 if ($args -contains "-Help" -or $args -contains "/?" -or -not $FilePath -or -not $ApiKey -or $AcceptTAC -eq $null) {
     Write-Host "SubmitFileToJoeSandbox PowerShell Script"
-    Write-Host "Usage: .\SubmitFileToJoeSandbox.ps1 -FilePath=<String> -ApiKey=<String> -AcceptTAC=<Boolean>"
-    Write-Host "Example: .\SubmitFileToJoeSandbox.ps1 -FilePath='C:\path\to\file.exe' -ApiKey='your-api-key' -AcceptTAC=True"
+    Write-Host "Usage: .\SubmitFileToJoeSandbox.ps1 -FilePath=<String> -ApiKey=<String> -AcceptTAC=<Boolean> [-ApiUrl=<String>]"
+    Write-Host "Example: .\SubmitFileToJoeSandbox.ps1 -FilePath='C:\path\to\file.exe' -ApiKey='your-api-key' -AcceptTAC=$True -ApiUrl='https://api.joesandbox.com/api/v2/'"
     Write-Host "Parameters:"
     Write-Host "  -FilePath: The full local path to the file to be submitted."
     Write-Host "  -ApiKey: The API key for Joe Sandbox authentication."
     Write-Host "  -AcceptTAC: Acceptance of the Terms and Conditions."
+    Write-Host "  -ApiUrl: Optional. The URL of the Joe Sandbox API."
     exit
 }
 
 # Proceed with the function call
 try {
-    SubmitFileToJoeSandbox -file_path $FilePath -api_key $ApiKey -accept_tac $AcceptTAC
+    SubmitFileToJoeSandbox -file_path $FilePath -api_key $ApiKey -accept_tac $AcceptTAC -api_url $ApiUrl
 }
 catch {
     Write-Host "Error occurred: $_"
